@@ -19,9 +19,8 @@ class BACard:
         self.card_id = Path(a).stem
         self.card_pixels = np.asarray(Image.open(a))
 
-    async def geturl(self):
-        cur = Card.find(self.card_id)
-        return cur.images.small
+    def geturl(self):
+        return 'full cards' + self.card_id + '.png'
 
     def compare(self, i):
         total_avg = 0
@@ -37,32 +36,51 @@ class Frame:
         self.full_frame = a
 
     def getarray(self, x, y):
-        assert x * 2 < len(self.full_frame[1]) and x >= 0
-        assert y * 2 < len(self.full_frame) and y >= 0
+        assert x * 2 <= len(self.full_frame[1]) and x >= 0
+        assert y * 2 <= len(self.full_frame) and y >= 0
         return self.full_frame[y * 2:y * 2 + 2, x * 2:x * 2 + 2]
 
 
-image = Image.open('resizedFrames/frame0895.bmp')
+image = Image.open('resizedFrames/frame0117.bmp')
 frame = Frame(np.asarray(image))
 
 cards = []
+for card in os.listdir('pokemon cards'):
+    cards.append(BACard('pokemon cards/' + card))
 
 
-async def main():
-    for card in os.listdir('pokemon cards'):
-        cards.append(BACard('pokemon cards/' + card))
-
+def find(x, y, list):
     distance = 881023
     curcard = None
-    for card in cards:
-        compare = card.compare(frame.getarray(4, 3))
+    for card in list:
+        compare = card.compare(frame.getarray(x, y))
         if distance > compare:
             distance = compare
             curcard = card
-    print(curcard.card_id)
-    print((Card.find(curcard.card_id)).images.large)
-    print('done')
+    return curcard
+
+
+def main():
+    curframe = [[], [], [], [], [], [], [], [], []]
+    list = cards
+    for y in range(9):
+        for x in range(16):
+            curcard = find(x, y, list)
+            #list.remove(curcard)
+            image = np.asarray(Image.open('full cards/' + curcard.card_id + '.png').convert("RGB").resize((240, 330)))
+            curframe[y].append(image)
+    yframe = []
+    for y in range(9):
+        yframe.append(curframe[y][0])
+        for x in range(15):
+            yframe[y] = (np.concatenate((yframe[y], curframe[y][x+1]), axis=1))
+    out = yframe[0]
+    for y in range(8):
+        out = (np.concatenate((out, yframe[y+1]), axis=0))
+    imgs_comb = Image.fromarray(out)
+    imgs_comb.save('frame.png')
+
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
