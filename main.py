@@ -13,15 +13,14 @@ from multiprocessing.dummy import Pool as ThreadPool
 
 RestClient.configure('6797477a-7410-40ec-b0df-caf3050c4a3e')
 i = 1
+bad = np.asarray(Image.open("pokemon cards/bad.png"))
 while True:
-    cards = Card.where(q='types:Metal', page=i, pageSize=50)
+    cards = Card.where(q='types:Colorless', page=i, pageSize=50)
     print(i)
     if len(cards) == 0:
         break
     urls = []
     for card in cards:
-        print(card.id)
-        print(card.images.small)
         urls.append(card.images.small)
     with ThreadPool(50) as pool:
         img_data = list(pool.map(requests.get, urls))
@@ -29,13 +28,12 @@ while True:
     for card in img_data:
         image = Image.open(BytesIO(card.content))
         new_image = image.resize((2, 2))
-        print(cards[r].id)
+        if np.array_equiv(np.asarray(new_image), bad):
+            print(cards[r].id)
         new_image.save('pokemon cards/' + cards[r].id + ".png")
-        r+=1
+        r += 1
     i += 1
     print("page finished")
-
-
 
 # for filename in os.listdir('frames'):
 #    image = Image.open(os.path.join('frames', filename))
