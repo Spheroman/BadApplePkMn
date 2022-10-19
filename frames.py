@@ -1,14 +1,11 @@
+import math
+
 from PIL import Image
 import numpy as np
-from pokemontcgsdk import Card
-from pokemontcgsdk import Set
-from pokemontcgsdk import Type
-from pokemontcgsdk import Supertype
-from pokemontcgsdk import Subtype
-from pokemontcgsdk import Rarity
 from pathlib import Path
 import os
 import asyncio
+import concurrent.futures
 from pokemontcgsdk import RestClient
 
 RestClient.configure('12345678-1234-1234-1234-123456789ABC')
@@ -23,12 +20,18 @@ class BACard:
         return 'full cards' + self.card_id + '.png'
 
     def compare(self, i):
-        total_avg = 0
+        pixels = []
         for y in range(2):
             for x in range(2):
+                temp_avg = 0
                 for rgb in range(3):
-                    total_avg += abs(int(self.card_pixels[y][x][rgb]) - int(i[y][x][rgb]))
-        return total_avg
+                    if rgb == 0: mod = 0.3
+                    if rgb == 1: mod = 0.59
+                    if rgb == 2: mod = 0.11
+                    temp_avg += math.pow((int(self.card_pixels[y][x][rgb]) - int(i[y][x][rgb]))*mod, 2)
+                pixels.append(temp_avg)
+        return pixels[0] + pixels[1] + pixels[2] + pixels[3]
+        #return math.sqrt(math.pow(pixels[0], 2) + math.pow(pixels[1], 2) + math.pow(pixels[2], 2) + math.pow(pixels[3], 2))
 
 
 class Frame:
@@ -41,18 +44,15 @@ class Frame:
         return self.full_frame[y * 2:y * 2 + 2, x * 2:x * 2 + 2]
 
 
-image = Image.open('resizedFrames/frame0117.bmp')
-frame = Frame(np.asarray(image))
-
 cards = []
 for card in os.listdir('pokemon cards'):
     cards.append(BACard('pokemon cards/' + card))
 
 
-def find(x, y, list):
+def find(x, y, cardpool, frame):
     distance = 881023
     curcard = None
-    for card in list:
+    for card in cardpool:
         compare = card.compare(frame.getarray(x, y))
         if distance > compare:
             distance = compare
@@ -60,14 +60,16 @@ def find(x, y, list):
     return curcard
 
 
-def main():
+def run(url):
+    image = Image.open(url)
+    frame = Frame(np.asarray(image))
     curframe = [[], [], [], [], [], [], [], [], []]
-    list = cards
+    cardpool = cards
     for y in range(9):
         for x in range(16):
-            curcard = find(x, y, list)
-            #list.remove(curcard)
-            image = np.asarray(Image.open('full cards/' + curcard.card_id + '.png').convert("RGB").resize((240, 330)))
+            curcard = find(x, y, cardpool, frame)
+            cardpool.remove(curcard)
+            image = np.asarray(Image.open('full cards/' + curcard.card_id + '.png').convert("RGBA").resize((200, 275)))
             curframe[y].append(image)
     yframe = []
     for y in range(9):
@@ -78,9 +80,13 @@ def main():
     for y in range(8):
         out = (np.concatenate((out, yframe[y+1]), axis=0))
     imgs_comb = Image.fromarray(out)
-    imgs_comb.save('frame.png')
-
+    print("saving " + Path(url).stem)
+    imgs_comb.save('renderedFrames/' + Path(url).stem + '.png')
 
 
 if __name__ == "__main__":
-    main()
+    frames = ["resizedFrames/frame0001.bmp", "resizedFrames/frame0073.bmp", "resizedFrames/frame0084.bmp", "resizedFrames/frame2245.bmp"]
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        executor.map(run, frames)
+
+#os.listdir('resizedFrames')
