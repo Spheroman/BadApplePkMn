@@ -15,7 +15,7 @@ class BACard:
     def __init__(self, a):
         self.card_id = Path(a).stem
         self.card_pixels = np.asarray(Image.open(a))
-
+        self.card_image = Image.open('full cards/' + self.card_id + '.png')
     def geturl(self):
         return 'full cards' + self.card_id + '.png'
 
@@ -61,15 +61,16 @@ def find(x, y, cardpool, frame):
 
 
 def run(url):
+    url = 'resizedFrames/' + url
     image = Image.open(url)
     frame = Frame(np.asarray(image))
     curframe = [[], [], [], [], [], [], [], [], []]
-    cardpool = cards
+    cardpool = cards.copy()
     for y in range(9):
         for x in range(16):
             curcard = find(x, y, cardpool, frame)
             cardpool.remove(curcard)
-            image = np.asarray(Image.open('full cards/' + curcard.card_id + '.png').convert("RGBA").resize((200, 275)))
+            image = np.asarray(curcard.card_image.convert("RGBA").resize((200, 275)))
             curframe[y].append(image)
     yframe = []
     for y in range(9):
@@ -81,12 +82,10 @@ def run(url):
         out = (np.concatenate((out, yframe[y+1]), axis=0))
     imgs_comb = Image.fromarray(out)
     print("saving " + Path(url).stem)
-    imgs_comb.save('renderedFrames/' + Path(url).stem + '.png')
+    imgs_comb.save('D:/pkmnRender/' + Path(url).stem + '.png')
 
 
 if __name__ == "__main__":
-    frames = ["resizedFrames/frame0001.bmp", "resizedFrames/frame0073.bmp", "resizedFrames/frame0084.bmp", "resizedFrames/frame2245.bmp"]
+    print(os.listdir('resizedFrames'))
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        executor.map(run, frames)
-
-#os.listdir('resizedFrames')
+        executor.map(run, os.listdir('resizedFrames'))
